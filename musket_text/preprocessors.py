@@ -1,13 +1,15 @@
 import os
 import numpy as np
-from musket_core import utils,preprocessing,context
+from musket_core import utils,preprocessing,context,model
 from nltk.tokenize import casual_tokenize
-
+from musket_core.datasets import DataSet
+from musket_core import caches
+from collections import Counter
+import tqdm
+import keras
 _loaded={}
 
 def get_coefs(word,*arr): return word, np.asarray(arr, dtype='float32')
-
-
 
 def embeddings(EMBEDDING_FILE:str):
     path=context.get_current_project_path()
@@ -38,18 +40,123 @@ def embeddings(EMBEDDING_FILE:str):
 def tokenize(inp):
     return casual_tokenize(inp)
 
+
+class Vocabulary:
+    def __init__(self,voc:dict,i2w):
+        self.dict=voc
+        self.i2w=i2w
+        self.unknown=len(voc)
+        
+        
+def buildVocabulary(inp:DataSet,maxWords=None):
+    counter=Counter()
+    if maxWords==-1:
+        maxWords=None
+    for i in tqdm.tqdm(range(len(inp)),desc="Building vocabulary for:"+str(inp)):
+        p=inp[i]        
+        for c in p.x:
+            counter[c]+=1
+    word2Index={}  
+    indexToWord={}      
+    num=1
+    for c in counter.most_common(maxWords):        
+        word2Index[c[0]]=num
+        indexToWord[num]=c[0]
+        num=num+1        
+    return Vocabulary(word2Index,indexToWord)
+
+
+_vocabs={}
+
+
+@preprocessing.dataset_transformer
+def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
+    voc=caches.get_cache_dir()
+    
+    name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
+    if os.path.exists(name):
+        if name in _vocabs:
+            return _vocabs[name]
+        vocabulary=utils.load(name)
+        _vocabs[name]=vocabulary
+    else:
+        vocabulary=buildVocabulary(inp,maxWords)
+        utils.save(name,vocabulary)
+        _vocabs[name]=vocabulary    
+    def transform2index(x):
+        ml=maxLen
+        if ml==-1:
+            ml=len(x)
+        res=np.zeros((ml,),dtype=np.int32)
+        num=0
+        for v in x:
+            if v in vocabulary.dict:
+                res[num]=(vocabulary.dict[v])
+            else:
+                res[num]=(vocabulary.unknown)
+            num=num+1
+            if num==ml:
+                break            
+        return res    
+    rs= preprocessing.PreprocessedDataSet(inp,transform2index,False)
+    rs.vocabulary=vocabulary
+    rs.contribution=name
+    return rs
+
+def get_vocab(nm)->Vocabulary:
+        
+    print(nm)
+    if nm in _vocabs:
+        return _vocabs[nm]
+    vocabulary=utils.load(nm)
+    _vocabs[nm]=vocabulary
+    return vocabulary
+@preprocessing.dataset_transformer
+def vectorize_indexes(inp,path,maxLen=-1):
+    embs=embeddings(path)
+    orig=inp
+    while not hasattr(orig, "vocabulary"):
+        orig=orig.parent
+    voc=orig.vocabulary
+    unknown=np.random.randn(300)    
+    def index2Vector(inp):
+        ml=maxLen
+        if ml==-1:
+            ml=len(inp)
+        ln=min(ml,len(inp))
+        result=np.zeros((ml,300),dtype=np.float32)        
+        for i in range(ln):
+            ind=inp[i]
+            if ind==0:
+                break
+            if ind in voc.i2w:
+                w=voc.i2w[ind]
+                if w in embs:
+                    result[i]=embs[w]
+                    continue
+            result[i]=unknown    
+        return result                    
+    rs= preprocessing.PreprocessedDataSet(inp,index2Vector,False)
+    return rs    
+
 @preprocessing.dataset_preprocessor
 class vectorize:
-    def __init__(self,path,maxLen):
+    def __init__(self,path,maxLen=-1):
         self.embeddings=embeddings(path)
         self.maxLen=maxLen
         pass
     def __call__(self,inp):
-        result=np.zeros((self.maxLen,300),dtype=np.float32)
-        
-        for i in range(self.maxLen):
-            if i<len(inp):
-                w=inp[i].lower()
+        ml=self.maxLen
+        if ml==-1:
+            ml=len(inp)
+        ln=min(ml,len(inp))
+        result=np.zeros((ml,300),dtype=np.float32)        
+        for i in range(ln):
+            w=inp[i]
+            if w in self.embeddings:
+                result[i]=self.embeddings[w]
+            else:    
+                w=w.lower()
                 if w in self.embeddings:
                     result[i]=self.embeddings[w]
         return result
@@ -69,6 +176,17 @@ class string_to_chars:
             return r
         return vl[:self.maxLen]
     
+@model.block    
+def word_indexes_embedding(inp,path):
+    embs=embeddings(path)
+    v=get_vocab(inp.contribution);
+    embedding_matrix = np.random.randn(len(v.dict)+1, 300)
+    
+    for word, i in tqdm.tqdm(v.dict.items()):
+        if word in embs:
+            embedding_matrix[i]=embs[word]
+    return keras.layers.Embedding(len(v.dict)+1,300,weights=[embedding_matrix],trainable=False)(inp)    
+        
     
 #xz=string_to_chars(builtin_datasets.from_array(["Hello","Маруся"],[0,0]),maxLen=100,encoding="cp1251")
 #print(xz[1].x)
