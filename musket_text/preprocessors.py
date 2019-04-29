@@ -38,7 +38,11 @@ def embeddings(EMBEDDING_FILE:str):
 
 @preprocessing.dataset_preprocessor
 def tokenize(inp):
-    return casual_tokenize(inp)
+    try:
+        return casual_tokenize(inp)
+    except:
+        print(inp)
+        return []
 
 
 class Vocabulary:
@@ -76,9 +80,10 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
     name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
     if os.path.exists(name):
         if name in _vocabs:
-            return _vocabs[name]
-        vocabulary=utils.load(name)
-        _vocabs[name]=vocabulary
+            vocabulary= _vocabs[name]
+        else:    
+            vocabulary=utils.load(name)
+            _vocabs[name]=vocabulary
     else:
         vocabulary=buildVocabulary(inp,maxWords)
         utils.save(name,vocabulary)
