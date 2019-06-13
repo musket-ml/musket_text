@@ -2,7 +2,8 @@ import numpy as np
 import re
 
 from musket_text.bert.extract_features import convert_examples_to_features, InputExample
-from dl_text_preprocessors.bert.data.dataset import create_attention_mask, generate_pos_ids
+from musket_text.bert.data.dataset import create_attention_mask, generate_pos_ids
+from musket_text.bert import tokenization
 
 class BertInput():
     def __init__(self,batch_size,input_ids,input_mask,input_type_ids,token_pos,tokens,attn_mask):

@@ -63,13 +63,20 @@ def create_transformer(embedding_dim: int = 768, embedding_dropout: float = 0.1,
                        num_layers: int = 12, attention_dropout: float = 0.1, use_one_embedding_dropout: bool = False,
                        d_hid: int = 768 * 4, residual_dropout: float = 0.1, use_attn_mask: bool = True,
                        embedding_layer_norm: bool = False, neg_inf: float = -1e9, layer_norm_epsilon: float = 1e-5,
-                       accurate_gelu: bool = False) -> keras.Model:
+                       accurate_gelu: bool = False,customInputs=None) -> keras.Model:
     #vocab_size += TextEncoder.SPECIAL_COUNT
-    tokens = Input(batch_shape=(None, max_len), name='token_input', dtype='int32')
-    segment_ids = Input(batch_shape=(None, max_len), name='segment_input', dtype='int32')
-    pos_ids = Input(batch_shape=(None, max_len), name='position_input', dtype='int32')
-    attn_mask = Input(batch_shape=(None, 1, max_len, max_len), name='attention_mask_input',
-                      dtype=K.floatx()) if use_attn_mask else None
+    if customInputs is None:
+        tokens = Input(batch_shape=(None, max_len), name='token_input', dtype='int32')
+        segment_ids = Input(batch_shape=(None, max_len), name='segment_input', dtype='int32')
+        pos_ids = Input(batch_shape=(None, max_len), name='position_input', dtype='int32')
+        attn_mask = Input(batch_shape=(None, 1, max_len, max_len), name='attention_mask_input',
+                          dtype=K.floatx()) if use_attn_mask else None
+    else:
+        tokens = customInputs[0]
+        segment_ids = customInputs[1]
+        pos_ids = customInputs[2]
+        attn_mask = customInputs[3] if use_attn_mask else None
+
     inputs = [tokens, segment_ids, pos_ids]
     embedding_layer = Embedding(embedding_dim, embedding_dropout, vocab_size, max_len, trainable_pos_embedding,
                                 use_one_embedding_dropout, embedding_layer_norm, layer_norm_epsilon)
