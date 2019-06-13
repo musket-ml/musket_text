@@ -28,6 +28,7 @@ def embeddings(EMBEDDING_FILE:str):
     else:
         import gensim
         vectors=gensim.models.KeyedVectors.load_word2vec_format(emb, binary=True)
+        result={}
         result.dict = vectors.vocab
         result.vectors = vectors.vectors
              
@@ -180,6 +181,44 @@ class string_to_chars:
             r= np.pad(vl, (0,self.maxLen-vl.shape[0]),mode="constant")
             return r
         return vl[:self.maxLen]
+
+@preprocessing.dataset_preprocessor
+def remove_random_words(inp,probability):
+    rr=np.random.rand(len(inp))
+    result=[]
+    count=0
+    for i in range(len(inp)):
+        if rr[i]<probability:
+            count=count+1
+            continue
+        result.append(inp[i])
+    result=result+[0]*count
+    return np.array(result)        
+
+
+@preprocessing.dataset_preprocessor
+def swap_random_words(inp,probability):
+    rr=np.random.rand(len(inp))
+    result=[]
+    continueNext=False
+    for i in range(len(inp)-1):
+        if continueNext:
+            continueNext=False
+            continue
+        if rr[i]<probability:
+            result.append(inp[i+1])
+            result.append(inp[i])
+            continueNext=True
+            continue
+            
+        result.append(inp[i])
+    while len(result)<len(inp):
+        result.append(0)    
+    if len(result)!=len(inp):
+        raise ValueError()      
+    return np.array(result)
+
+        
     
 @model.block    
 def word_indexes_embedding(inp,path):
