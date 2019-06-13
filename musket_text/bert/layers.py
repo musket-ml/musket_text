@@ -3,7 +3,7 @@ import keras.backend as K
 from keras.layers import Layer
 from keras.initializers import Ones, Zeros
 from .funcs import gelu, multihead_attention
-
+import tensorflow as tf
 
 class MultiHeadAttention(Layer):
     def __init__(self, n_head: int, n_state: int, attention_dropout: float, use_attn_mask: bool, neg_inf: float,
@@ -72,7 +72,7 @@ class Gelu(Layer):
         if not self.accurate:
             return gelu(inputs)
         if K.backend() == 'tensorflow':
-            erf = K.tf.erf
+            erf = tf.erf
         else:
             erf = K.T.erf
         return inputs * 0.5 * (1.0 + erf(inputs / math.sqrt(2.0)))
