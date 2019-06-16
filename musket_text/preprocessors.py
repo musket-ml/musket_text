@@ -7,9 +7,14 @@ from musket_core import caches
 from collections import Counter
 import tqdm
 import keras
+from collections import Iterable
 _loaded={}
 
-def get_coefs(word,*arr): return word, np.asarray(arr, dtype='float32')
+def get_coefs(word,*arr):
+    try:
+        return word, np.asarray(arr, dtype='float32')
+    except:
+        k = 0
 
 def embeddings(EMBEDDING_FILE:str):
     path=context.get_current_project_path()
@@ -218,18 +223,35 @@ def swap_random_words(inp,probability):
         raise ValueError()      
     return np.array(result)
 
-        
+@preprocessing.dataset_preprocessor
+def text_length(input, max=1000):
+    text = ""
+    if isinstance(input, str):
+        text = str
+    elif isinstance(input, (Iterable)):
+        text = "".join(input)
+    else:
+        try:
+            itr = iter(input)
+            text = "".join(itr)
+        except TypeError as te:
+            pass
+
+    result = np.zeros((1), dtype=np.float32)
+    result[0] = float(len(text)) / float(max)
+    return result
     
 @model.block    
 def word_indexes_embedding(inp,path):
+    output_len = 300
     embs=embeddings(path)
     v=get_vocab(inp.contribution);
-    embedding_matrix = np.random.randn(len(v.dict)+1, 300)
+    embedding_matrix = np.random.randn(len(v.dict)+1, output_len)
     
     for word, i in tqdm.tqdm(v.dict.items()):
         if word in embs:
             embedding_matrix[i]=embs[word]
-    return keras.layers.Embedding(len(v.dict)+1,300,weights=[embedding_matrix],trainable=False)(inp)    
+    return keras.layers.Embedding(len(v.dict)+1,output_len,weights=[embedding_matrix],trainable=False)(inp)
         
     
 #xz=string_to_chars(builtin_datasets.from_array(["Hello","Маруся"],[0,0]),maxLen=100,encoding="cp1251")
