@@ -2,8 +2,8 @@ import os
 import numpy as np
 
 from musket_text.bert.tokenization import FullTokenizer, convert_to_unicode
-from dl_text_preprocessors.bert.load import load_google_bert
-from dl_text_preprocessors.bert.input_constructor import prepare_input
+from musket_text.bert.load import load_google_bert
+from musket_text.bert.input_constructor import prepare_input
 
 __models = [
     "uncased_L-12_H-768_A-12",

@@ -248,5 +248,4 @@ def word_indexes_embedding(inp,path):
     return keras.layers.Embedding(len(v.dict)+1,300,weights=[embedding_matrix],trainable=False)(inp)    
         
     
-#xz=string_to_chars(builtin_datasets.from_array(["Hello","Маруся"],[0,0]),maxLen=100,encoding="cp1251")
-#print(xz[1].x)
+    

@@ -2,7 +2,7 @@ import math
 import numpy as np
 import keras.backend as K
 from keras.layers import Dropout
-
+import tensorflow as tf
 
 def shape_list(x):
     if K.backend() != 'theano':
@@ -31,14 +31,18 @@ def merge_heads(x):
 
 # q and v are B, H, L, C//H ; k is B, H, C//H, L ; mask is B, 1, L, L
 def scaled_dot_product_attention_tf(q, k, v, attn_mask, attention_dropout: float, neg_inf: float):
-    w = K.batch_dot(q, k)
+    w = tf_batch_dot(k, q)
     w = w / K.sqrt(K.cast(shape_list(v)[-1], K.floatx()))
     if attn_mask is not None:
         w = attn_mask * w + (1.0 - attn_mask) * neg_inf
     w = K.softmax(w)
     rawAtt = w# w is B, H, L, L
     w = Dropout(attention_dropout)(w)
-    return K.batch_dot(w, v), rawAtt  # it is B, H, L, C//H [like v]
+    return tf_batch_dot(v, w), rawAtt  # it is B, H, L, C//H [like v]
+
+
+def tf_batch_dot(k, q):
+    return tf.matmul(q,k) #K.batch_dot(q, k)
 
 
 def scaled_dot_product_attention_th(q, k, v, attn_mask, attention_dropout: float, neg_inf: float):

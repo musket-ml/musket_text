@@ -30,7 +30,7 @@ def load_openai_transformer(path: str = './openai/model/', use_attn_mask: bool =
 
 
 def load_google_bert(base_location: str = './google_bert/downloads/multilingual_L-12_H-768_A-12/',
-                     use_attn_mask: bool = True, max_len: int = 512, verbose: bool = False) -> keras.Model:
+                     use_attn_mask: bool = True, max_len: int = 512, verbose: bool = False,customInputs=None) -> keras.Model:
     bert_config = BertConfig.from_json_file(base_location + 'bert_config.json')
     init_checkpoint = base_location + 'bert_model.ckpt'
     var_names = tf.train.list_variables(init_checkpoint)
@@ -42,7 +42,8 @@ def load_google_bert(base_location: str = './google_bert/downloads/multilingual_
                                embedding_dim=bert_config.hidden_size, num_layers=bert_config.num_hidden_layers,
                                num_heads=bert_config.num_attention_heads,
                                residual_dropout=bert_config.hidden_dropout_prob,
-                               attention_dropout=bert_config.attention_probs_dropout_prob)
+                               attention_dropout=bert_config.attention_probs_dropout_prob,
+                               customInputs=customInputs)
     if K.backend() == 'tensorflow':
         weights = [np.zeros(w.shape) for w in model.weights]
     else:
