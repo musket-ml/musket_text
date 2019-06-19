@@ -9,7 +9,9 @@ import tqdm
 import keras
 _loaded={}
 
-def get_coefs(word,*arr): return word, np.asarray(arr, dtype='float32')
+def get_coefs(word,*arr): 
+        return word, np.asarray(arr, dtype='float32')
+    
 
 def embeddings(EMBEDDING_FILE:str):
     path=context.get_current_project_path()
@@ -24,7 +26,7 @@ def embeddings(EMBEDDING_FILE:str):
         return result
         
     if not EMBEDDING_FILE.endswith(".bin"):
-        result= dict(get_coefs(*o.split(" ")) for o in open(emb,encoding="utf8",errors="ignore") if len(o)>100)
+        result= dict(get_coefs(*o.strip().split(" ")) for o in open(emb,encoding="utf8",errors="ignore") if len(o)>100)
     else:
         import gensim
         vectors=gensim.models.KeyedVectors.load_word2vec_format(emb, binary=True)
@@ -218,7 +220,21 @@ def swap_random_words(inp,probability):
         raise ValueError()      
     return np.array(result)
 
-        
+@preprocessing.dataset_preprocessor
+def add_random_words(inp,probability):
+    rr=np.random.rand(len(inp))
+    result=[]
+    for i in range(len(inp)):
+        if rr[i]<probability:
+            result.append(np.random.randint(1,2000))
+            
+            
+        result.append(inp[i])
+    if len(result)>len(inp):
+        result=result[:len(inp)]      
+    return np.array(result)        
+ 
+ 
     
 @model.block    
 def word_indexes_embedding(inp,path):
