@@ -102,6 +102,10 @@ class WordpieceTokenizer1(object):
     self.vocab = vocab
     self.unk_token = unk_token
     self.max_input_chars_per_word = max_input_chars_per_word
+    self.unknowns = None
+
+  def setUnknownsStorage(self,map:dict):
+      self.unknowns = map
 
   def tokenize(self, text):
     """Tokenizes a piece of text into its word pieces.
@@ -128,6 +132,8 @@ class WordpieceTokenizer1(object):
       output_tokens.append(text)
     else:
       output_tokens.append(self.unk_token)
+      if self.unknowns is not None:
+          self.unknowns[text] += 1
     # for token in whitespace_tokenize(text):
     #     chars = list(token)
     #     if len(chars) > self.max_input_chars_per_word:
@@ -161,10 +167,13 @@ class WordpieceTokenizer1(object):
     return output_tokens
 
 
-def create_tokenizer(bertDir: str):
+def create_tokenizer(bertDir: str, unknownsMap = None):
     if not bertDir.endswith("/"):
         bertDir += "/"
 
     tokenizer = FullTokenizer(bertDir + "vocab.txt")
-    tokenizer.wordpiece_tokenizer = WordpieceTokenizer1(tokenizer.vocab)
+    wpt1 = WordpieceTokenizer1(tokenizer.vocab)
+    wpt1.setUnknownsStorage(unknownsMap)
+    tokenizer.wordpiece_tokenizer = wpt1
+
     return tokenizer
