@@ -114,7 +114,6 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
 
 def get_vocab(nm)->Vocabulary:
         
-    print(nm)
     if nm in _vocabs:
         return _vocabs[nm]
     vocabulary=utils.load(nm)
