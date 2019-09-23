@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from musket_text.bert.tokenization import FullTokenizer, convert_to_unicode
+from musket_text.bert.tokenization import FullTokenizer, convert_to_unicode,whitespace_tokenize
 from musket_text.bert.load import load_google_bert
 from musket_text.bert.input_constructor import prepare_input
 
@@ -127,37 +127,37 @@ class WordpieceTokenizer1(object):
     if (text in self.vocab):
       output_tokens.append(text)
     else:
-      output_tokens.append(self.unk_token)
-    # for token in whitespace_tokenize(text):
-    #     chars = list(token)
-    #     if len(chars) > self.max_input_chars_per_word:
-    #         output_tokens.append(self.unk_token)
-    #         continue
-    #
-    #     is_bad = False
-    #     start = 0
-    #     sub_tokens = []
-    #     while start < len(chars):
-    #         end = len(chars)
-    #         cur_substr = None
-    #         while start < end:
-    #             substr = "".join(chars[start:end])
-    #             if start > 0:
-    #                 substr = "##" + substr
-    #             if substr in self.vocab:
-    #                 cur_substr = substr
-    #                 break
-    #             end -= 1
-    #         if cur_substr is None:
-    #             is_bad = True
-    #             break
-    #         sub_tokens.append(cur_substr)
-    #         start = end
-    #
-    #     if is_bad:
-    #         output_tokens.append(self.unk_token)
-    #     else:
-    #         output_tokens.extend(sub_tokens)
+     # output_tokens.append(self.unk_token)
+        for token in whitespace_tokenize(text):
+            chars = list(token)
+            if len(chars) > self.max_input_chars_per_word:
+                output_tokens.append(self.unk_token)
+                continue
+        
+            is_bad = False
+            start = 0
+            sub_tokens = []
+            while start < len(chars):
+                end = len(chars)
+                cur_substr = None
+                while start < end:
+                    substr = "".join(chars[start:end])
+                    if start > 0:
+                        substr = "##" + substr
+                    if substr in self.vocab:
+                        cur_substr = substr
+                        break
+                    end -= 1
+                if cur_substr is None:
+                    is_bad = True
+                    break
+                sub_tokens.append(cur_substr)
+                start = end
+        
+            if is_bad:
+                output_tokens.append(self.unk_token)
+            else:
+                output_tokens.extend(sub_tokens)
     return output_tokens
 
 

@@ -7,6 +7,7 @@ from musket_core import caches
 from collections import Counter
 import tqdm
 import keras
+from future.types import no
 _loaded={}
 
 def get_coefs(word,*arr): 
@@ -240,12 +241,19 @@ def add_random_words(inp,probability):
 def word_indexes_embedding(inp,path):
     embs=embeddings(path)
     v=get_vocab(inp.contribution);
-    embedding_matrix = np.random.randn(len(v.dict)+1, 300)
-    
-    for word, i in tqdm.tqdm(v.dict.items()):
-        if word in embs:
-            embedding_matrix[i]=embs[word]
-    return keras.layers.Embedding(len(v.dict)+1,300,weights=[embedding_matrix],trainable=False)(inp)    
+    embedding_matrix = None
+    try:
+        for word, i in tqdm.tqdm(v.dict.items()):
+            if word in embs:
+                if embedding_matrix is None: 
+                    embedding_matrix=np.random.randn(len(v.dict)+1, len(embs[word]))
+                embedding_matrix[i]=embs[word]
+        return keras.layers.Embedding(len(v.dict)+1,embedding_matrix.shape[1],weights=[embedding_matrix],trainable=False)(inp)    
+    except:
+        import traceback
+        traceback.print_exc()
+        return None
+
         
     
     
