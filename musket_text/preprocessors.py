@@ -82,6 +82,15 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
     voc=caches.get_cache_dir()
     
     name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
+    # WE SHOULD USE TRAIN VOCABULARY IN ALL CASES  
+    try:
+        trainName=str(inp.root().cfg.dataset)
+        
+        curName=inp.root().name
+        if trainName!=curName:
+            name=utils.load(inp.root().cfg.path+".contribution")            
+    except:
+        pass 
     if os.path.exists(name):
         if name in _vocabs:
             vocabulary= _vocabs[name]
@@ -251,8 +260,6 @@ def word_indexes_embedding(inp,path):
     except:
         import traceback
         traceback.print_exc()
-        return None
-
-        
+        return None     
     
     
