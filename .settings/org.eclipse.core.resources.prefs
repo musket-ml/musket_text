@@ -1,3 +1,5 @@
 eclipse.preferences.version=1
+encoding//musket_text/bert/extract_features.py=utf-8
+encoding//musket_text/bert/modeling.py=utf-8
 encoding//musket_text/bert/tokenization.py=utf-8
 encoding//musket_text/preprocessors.py=UTF-8
