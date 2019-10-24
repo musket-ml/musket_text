@@ -3,10 +3,9 @@ python:
   - "3.6"      # current default Python on Travis CI
   - "3.7"  
 # command to install dependencies
-install:
-  - pip install -r requires.txt  
-  - pip install .
+install:  
   - pip install git+https://github.com/musket-ml/musket_core.git
+  - pip install .
   - pip install git+https://github.com/musket-ml/classification_training_pipeline.git
   - pip install git+https://github.com/musket-ml/segmentation_training_pipeline.git  
   - pip install git+https://github.com/musket-ml/musket_all.git
