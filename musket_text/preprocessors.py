@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from musket_core import utils,preprocessing,context,model
+from musket_core.context import get_current_project_data_path
 from nltk.tokenize import casual_tokenize
 from musket_core.datasets import DataSet
 from musket_core import caches
@@ -39,6 +40,59 @@ def embeddings(EMBEDDING_FILE:str):
     utils.save(cache+EMBEDDING_FILE+".embcache", result)
     return result
 
+@preprocessing.dataset_preprocessor
+def lowercase(inp:str):
+    return inp.lower()
+
+class CropFirst1(keras.layers.Layer):
+
+    def build(self, input_shape):
+        keras.layers.Layer.build(self, input_shape)
+        
+    def call(self, inp):
+        return inp[:,0,:]    
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[1],input_shape[2])    
+
+@model.block
+def bert(inp):
+    from musket_text.bert.load import load_google_bert
+    cfg=inp[0].contribution
+    path=cfg.path
+    max_len=cfg.len
+    g_bert, cfg = load_google_bert(get_current_project_data_path()+path + '/', max_len=max_len, use_attn_mask=False,customInputs=inp)
+    outputs = g_bert.outputs
+    return outputs[0]
+
+
+@preprocessing.dataset_transformer
+def text_to_bert_input(inp,path,max_len): 
+    
+    from musket_text.bert.bert_encoder import create_tokenizer
+    from musket_text.bert.input_constructor import prepare_input
+    bertTokenizer = create_tokenizer(get_current_project_data_path()+path)       
+    def transform2index(x):
+        
+    
+        bInput = prepare_input(x, max_len, bertTokenizer, False)
+        if bInput.attn_mask is not None:
+            return [x[0] for x in [bInput.input_ids, bInput.input_type_ids, bInput.token_pos, bInput.attn_mask]]
+        else:
+            return [x[0] for x in [bInput.input_ids, bInput.input_type_ids, bInput.token_pos]]        
+    rs= preprocessing.PreprocessedDataSet(inp,transform2index,False)
+    rs.path=path
+    rs.contribution=BertConfig(path,max_len)
+    return rs
+
+@model.block
+def takeFirstToken(inp):
+    return CropFirst1()(inp)
+
+class BertConfig:
+    def __init__(self,path,ln):
+        self.path=path
+        self.len=ln
 
 @preprocessing.dataset_preprocessor
 def tokenize(inp):
