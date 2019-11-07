@@ -1,10 +1,11 @@
 import os
 import numpy as np
-from musket_core import utils,preprocessing,context,model
+from musket_core import utils,preprocessing,context,model,datasets
 from musket_core.context import get_current_project_data_path
 from nltk.tokenize import casual_tokenize
 from musket_core.datasets import DataSet
-from musket_core import caches
+from musket_core import configloader
+from musket_core import caches,metrics
 from collections import Counter
 import tqdm
 import keras
@@ -39,6 +40,29 @@ def embeddings(EMBEDDING_FILE:str):
     _loaded[EMBEDDING_FILE]=result
     utils.save(cache+EMBEDDING_FILE+".embcache", result)
     return result
+
+@preprocessing.dataset_transformer
+def pad_sequence_labeling(inp:datasets.DataSet,maxLen=-1)->datasets.DataSet:
+    def pad_sequence_label(x):
+        tokenText=list(x.x)
+        tokenClazz=list(x.y)
+        
+        while len(tokenClazz)<maxLen:
+            tokenClazz.append(inp.num2Class[inp.clazzColumn][2])
+            tokenText.append("^")
+        if len(tokenClazz)>maxLen:
+            tokenClazz=tokenClazz[0:maxLen]
+            tokenText=tokenText[0:maxLen]   
+        return preprocessing.PreproccedPredictionItem(x.id,np.array(tokenText),np.array(tokenClazz),x)     
+    rs= preprocessing.PreprocessedDataSet(inp,pad_sequence_label,True)
+    return rs
+
+@preprocessing.dataset_preprocessor
+def tokens_to_case(inp):
+    rr=[]
+    for w in inp:
+        rr.append([w.lower()==w,w.upper()==w,w.isdigit(),w.isalpha()])
+    return np.array(rr)
 
 @preprocessing.dataset_preprocessor
 def lowercase(inp:str):
@@ -316,4 +340,69 @@ def word_indexes_embedding(inp,path):
         traceback.print_exc()
         return None     
     
+from seqeval import metrics as sem   
+
+class connll2003_entity_level_f1(metrics.ByOneMetric):
+    def __init__(self):
+        self.gt=[]
+        self.pr=[]
+        self.name="connll2003_entity_level_f1"
+        pass
+  
+    def onItem(self,outputs,labels):
+        self.pr=self.pr+self.dataset.decode(outputs)
+        self.gt=self.gt+self.dataset.decode(labels)
+        pass
     
+    def eval(self,predictions):
+        self.dataset=predictions.root()
+        return super().eval(predictions)
+    
+    def commit(self,dict):
+        dict[self.name]=sem.f1_score(self.gt,self.pr)
+        return dict
+    
+class connll2003_entity_level_precision(metrics.ByOneMetric):
+    def __init__(self):
+        self.gt=[]
+        self.pr=[]
+        self.name="connll2003_entity_level_precision"
+        pass
+  
+    def onItem(self,outputs,labels):
+        self.pr=self.pr+self.dataset.decode(outputs)
+        self.gt=self.gt+self.dataset.decode(labels)
+        pass
+    
+    def eval(self,predictions):
+        self.dataset=predictions.root()
+        return super().eval(predictions)
+    
+    def commit(self,dict):
+        dict[self.name]=sem.precision_score(self.gt,self.pr)
+        return dict
+    
+class connll2003_entity_level_recall(metrics.ByOneMetric):
+    def __init__(self):
+        self.gt=[]
+        self.pr=[]
+        self.name="connll2003_entity_level_recall"
+        pass
+  
+    def onItem(self,outputs,labels):
+        self.pr=self.pr+self.dataset.decode(outputs)
+        self.gt=self.gt+self.dataset.decode(labels)
+        pass
+    
+    def eval(self,predictions):
+        self.dataset=predictions.root()
+        return super().eval(predictions)
+    
+    def commit(self,dict):
+        dict[self.name]=sem.recall_score(self.gt,self.pr)
+        return dict        
+
+
+configloader.load("layers").catalog[connll2003_entity_level_f1().name]=connll2003_entity_level_f1()    
+configloader.load("layers").catalog[connll2003_entity_level_precision().name]=connll2003_entity_level_precision()
+configloader.load("layers").catalog[connll2003_entity_level_recall().name]=connll2003_entity_level_recall()
