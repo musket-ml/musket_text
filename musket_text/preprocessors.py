@@ -350,8 +350,9 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
         pass
   
     def onItem(self,outputs,labels):
-        self.pr=self.pr+self.dataset.decode(outputs)
-        self.gt=self.gt+self.dataset.decode(labels)
+        labels=self.dataset.decode(labels)
+        self.pr=self.pr+self.dataset.decode(outputs,len(labels))
+        self.gt=self.gt+labels
         pass
     
     def eval(self,predictions):
@@ -359,20 +360,18 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
         return super().eval(predictions)
     
     def commit(self,dict):
+        
         dict[self.name]=sem.f1_score(self.gt,self.pr)
         return dict
     
-class connll2003_entity_level_precision(metrics.ByOneMetric):
+class connll2003_entity_level_precision(connll2003_entity_level_f1):
     def __init__(self):
         self.gt=[]
         self.pr=[]
         self.name="connll2003_entity_level_precision"
         pass
   
-    def onItem(self,outputs,labels):
-        self.pr=self.pr+self.dataset.decode(outputs)
-        self.gt=self.gt+self.dataset.decode(labels)
-        pass
+    
     
     def eval(self,predictions):
         self.dataset=predictions.root()
@@ -382,16 +381,11 @@ class connll2003_entity_level_precision(metrics.ByOneMetric):
         dict[self.name]=sem.precision_score(self.gt,self.pr)
         return dict
     
-class connll2003_entity_level_recall(metrics.ByOneMetric):
+class connll2003_entity_level_recall(connll2003_entity_level_f1):
     def __init__(self):
         self.gt=[]
         self.pr=[]
         self.name="connll2003_entity_level_recall"
-        pass
-  
-    def onItem(self,outputs,labels):
-        self.pr=self.pr+self.dataset.decode(outputs)
-        self.gt=self.gt+self.dataset.decode(labels)
         pass
     
     def eval(self,predictions):

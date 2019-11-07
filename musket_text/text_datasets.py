@@ -118,8 +118,9 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
         else:
             v=item.prediction
         
-        res=self.decode(v,item.y)
         txt=self[int(item.id)].x
+        res=self.decode(v,len(txt))
+        
         return res,txt
                 
 
@@ -218,10 +219,21 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
             
         return datasets.PredictionItem(item,np.array(tokenText),np.array(tokenClazz))
     
+    
     def decode(self,vals,vm=None):
             vs=self.num2Class[self.clazzColumn]
             rs=np.argmax(vals,axis=1)
+            
             res=[]
+            if vm is not None:
+                for i in range(vm):
+                    q=rs[i]
+                    if q in vs[1]:
+                        res.append(vs[1][q])
+                    else:
+                        res.append("O")
+                        
+                return res
             for q in rs:
                 if q in vs[1]:
                     res.append(vs[1][q])
