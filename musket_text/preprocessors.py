@@ -49,7 +49,7 @@ def pad_sequence_labeling(inp:datasets.DataSet,maxLen=-1)->datasets.DataSet:
         
         while len(tokenClazz)<maxLen:
             tokenClazz.append(inp.num2Class[inp.clazzColumn][2])
-            tokenText.append("^")
+            tokenText.append("eos")
         if len(tokenClazz)>maxLen:
             tokenClazz=tokenClazz[0:maxLen]
             tokenText=tokenText[0:maxLen]   
