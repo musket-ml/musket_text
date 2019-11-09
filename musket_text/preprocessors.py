@@ -64,9 +64,14 @@ def tokens_to_case(inp):
         rr.append([w.lower()==w,w.upper()==w,w.isdigit(),w.isalpha()])
     return np.array(rr)
 
+
 @preprocessing.dataset_preprocessor
 def lowercase(inp:str):
-    return inp.lower()
+    if isinstance(inp,str):
+        return inp.lower()
+    return np.array([x.lower() for x in inp])
+
+
 
 class CropFirst1(keras.layers.Layer):
 

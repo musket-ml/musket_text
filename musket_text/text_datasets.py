@@ -184,7 +184,7 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
         if len(cdoc.sentences) > 0:
             self.docs.append(cdoc)
 
-    def __init__(self,path,encoding="utf8",clazzColumn=2,byDoc=False):
+    def __init__(self,path,clazzColumn=2,encoding="utf8",byDoc=False):
         
         self.sentences=[]
         self.docs=[]
