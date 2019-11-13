@@ -8,6 +8,9 @@ from collections import Counter
 import tqdm
 import keras
 from collections import Iterable
+import string
+import re
+from typing import List
 _loaded={}
 
 def get_coefs(word,*arr):
@@ -81,19 +84,20 @@ _vocabs={}
 
 @preprocessing.dataset_transformer
 def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
-    voc=caches.get_cache_dir()
-    
-    name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
-    if os.path.exists(name):
-        if name in _vocabs:
-            vocabulary= _vocabs[name]
+    cachesDir=caches.get_cache_dir()
+
+    vocabName = caches.cache_name(inp)+"."+str(maxWords)+".vocab"
+    fullFilePath=os.path.join(cachesDir, vocabName)
+    if os.path.exists(fullFilePath):
+        if vocabName in _vocabs:
+            vocabulary= _vocabs[vocabName]
         else:    
-            vocabulary=utils.load(name)
-            _vocabs[name]=vocabulary
+            vocabulary=utils.load(fullFilePath)
+            _vocabs[vocabName]=vocabulary
     else:
         vocabulary=buildVocabulary(inp,maxWords)
-        utils.save(name,vocabulary)
-        _vocabs[name]=vocabulary    
+        utils.save(fullFilePath,vocabulary)
+        _vocabs[vocabName]=vocabulary
     def transform2index(x):
         ml=maxLen
         if ml==-1:
@@ -111,16 +115,20 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
         return res    
     rs= preprocessing.PreprocessedDataSet(inp,transform2index,False)
     rs.vocabulary=vocabulary
-    rs.contribution=name
+    rs.contribution=vocabName
     return rs
 
-def get_vocab(nm)->Vocabulary:
-        
-    print(nm)
-    if nm in _vocabs:
-        return _vocabs[nm]
-    vocabulary=utils.load(nm)
-    _vocabs[nm]=vocabulary
+def get_vocab(vocabName)->Vocabulary:
+
+    if vocabName in _vocabs:
+        return _vocabs[vocabName]
+
+    cachesDir = caches.get_cache_dir()
+    fullFilePath = os.path.join(cachesDir, vocabName)
+
+    print(f"Not found vocabulary {vocabName} in memory, loading from {fullFilePath}")
+    vocabulary=utils.load(fullFilePath)
+    _vocabs[vocabName]=vocabulary
     return vocabulary
 @preprocessing.dataset_transformer
 def vectorize_indexes(inp,path,maxLen=-1):
@@ -223,12 +231,24 @@ def swap_random_words(inp,probability):
         raise ValueError()      
     return np.array(result)
 
-@preprocessing.dataset_preprocessor
-def text_length(input, max=1000):
+def iterable_length(it: Iterable)->int:
+    return sum(1 for e in it)
+
+def numAsArray(number, max)->np.ndarray:
+    result = np.zeros((1), dtype=np.float32)
+
+    if number > max:
+        result[0] = 1.0
+    else:
+        result[0] = float(number) / float(max)
+
+    return result
+
+def inputAsTextStr(input)->str:
     text = ""
     if isinstance(input, str):
         text = str
-    elif isinstance(input, (Iterable)):
+    elif isinstance(input, Iterable):
         text = "".join(input)
     else:
         try:
@@ -237,15 +257,108 @@ def text_length(input, max=1000):
         except TypeError as te:
             pass
 
-    result = np.zeros((1), dtype=np.float32)
-    result[0] = float(len(text)) / float(max)
-    return result
-    
+    return text
+def num_of(input, max, entryToFind)->np.ndarray:
+    text = inputAsTextStr(input)
+
+    result = text.count(entryToFind)
+    return numAsArray(result, max)
+
+def num_of_chars(input, max, chars:List[str])->np.ndarray:
+    text = inputAsTextStr(input)
+
+    result = sum(v for k, v in Counter(text).items() if k in chars)
+    return numAsArray(result, max)
+
+@preprocessing.dataset_preprocessor
+def num_points(input, max=10)->np.ndarray:
+    return num_of(input, max, ".")
+
+@preprocessing.dataset_preprocessor
+def num_exclamations(input, max=10)->np.ndarray:
+    return num_of(input, max, "!")
+
+@preprocessing.dataset_preprocessor
+def num_questions(input, max=10)->np.ndarray:
+    return num_of(input, max, "?")
+
+@preprocessing.dataset_preprocessor
+def num_commas(input, max=15)->np.ndarray:
+    return num_of(input, max, ",")
+
+@preprocessing.dataset_preprocessor
+def num_quotes(input, max=10)->np.ndarray:
+    text = inputAsTextStr(input)
+
+    doubleQoutes = text.count("\"")
+    singleQoutes = text.count("'")
+    return numAsArray(doubleQoutes + singleQoutes, max)
+
+@preprocessing.dataset_preprocessor
+def num_capital_letters(input, max=10)->np.ndarray:
+    text = inputAsTextStr(input)
+    result = sum(1 for c in text if c.isupper())
+    return numAsArray(result, max)
+
+@preprocessing.dataset_preprocessor
+def num_special(input, max=30)->np.ndarray:
+    text = inputAsTextStr(input)
+
+    special_chars = ['[', '^', '&', '$', '#', ']']
+    return num_of_chars(input, max, special_chars)
+
+@preprocessing.dataset_preprocessor
+def num_punctuation(input, max=30)->np.ndarray:
+    text = inputAsTextStr(input)
+
+    special_chars = string.punctuation
+    return num_of_chars(input, max, special_chars)
+
+@preprocessing.dataset_preprocessor
+def text_length(input, max=1000)->np.ndarray:
+    text = inputAsTextStr(input)
+
+    return numAsArray(len(text), max)
+
+@preprocessing.dataset_preprocessor
+def num_words(input, max=200)->np.ndarray:
+    length = 0
+    if isinstance(input, str):
+        length = len(str(input).split())
+    elif isinstance(input, list):
+        length = len(input)
+    elif isinstance(input, (Iterable)):
+        length = iterable_length(input)
+    else:
+        try:
+            itr = iter(input)
+            length = iterable_length(itr)
+        except TypeError as te:
+            pass
+
+    return numAsArray(length, max)
+
+@preprocessing.dataset_preprocessor
+def num_emoji(input, max=10)->np.ndarray:
+    text = inputAsTextStr(input)
+    reg = u'[\U0001f600-\U0001f650]'
+    pattern = re.compile(reg, re.UNICODE)
+    count = len(re.findall(pattern, text))
+
+    return numAsArray(count, max)
+
 @model.block    
 def word_indexes_embedding(inp,path):
     output_len = 300
     embs=embeddings(path)
-    v=get_vocab(inp.contribution);
+    contribution = None
+    if hasattr(inp, 'contribution'):
+        contribution = inp.contribution
+    # else:
+    #     projectPath = context.get_current_project_path()
+    #     fullPath = os.path.join(projectPath, "config.yaml.contribution")
+    #     contribution = utils.load(fullPath)
+    v=get_vocab(contribution);
     embedding_matrix = np.random.randn(len(v.dict)+1, output_len)
     
     for word, i in tqdm.tqdm(v.dict.items()):
