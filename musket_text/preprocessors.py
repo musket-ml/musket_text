@@ -360,8 +360,7 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
   
     def onItem(self,outputs,labels):
         labels=self.dataset.decode(labels)
-        
-        gt=set(self.dataset.decode(outputs,len(labels)));
+        gt=self.dataset.decode(outputs,len(labels));
         self.pr=self.pr+labels
         self.gt=self.gt+gt
         pass
