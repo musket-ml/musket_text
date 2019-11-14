@@ -43,12 +43,16 @@ def embeddings(EMBEDDING_FILE:str):
 
 @preprocessing.dataset_transformer
 def pad_sequence_labeling(inp:datasets.DataSet,maxLen=-1)->datasets.DataSet:
+    lm=inp
+    if isinstance(inp, datasets.CompositeDataSet):
+        lm=inp.components[0]
     def pad_sequence_label(x):
         tokenText=list(x.x)
         tokenClazz=list(x.y)
         
+            
         while len(tokenClazz)<maxLen:
-            tokenClazz.append(inp.num2Class[inp.clazzColumn][2])
+            tokenClazz.append(lm.num2Class[lm.clazzColumn][2])
             tokenText.append("eos")
         if len(tokenClazz)>maxLen:
             tokenClazz=tokenClazz[0:maxLen]
@@ -359,8 +363,11 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
         pass
   
     def onItem(self,outputs,labels):
-        labels=self.dataset.decode(labels)
-        gt=self.dataset.decode(outputs,len(labels));
+        vl=self.dataset
+        if isinstance(vl, CompositeDataSet):
+            vl=vl.components[0]
+        labels=vl.dataset.decode(labels)
+        gt=vl.decode(outputs,len(labels));
         self.pr=self.pr+labels
         self.gt=self.gt+gt
         pass
