@@ -133,10 +133,15 @@ def tokenize(inp):
 
 
 class Vocabulary:
-    def __init__(self,voc:dict,i2w):
-        self.dict=voc
-        self.i2w=i2w
-        self.unknown=len(voc)
+    def __init__(self,words):
+        self.dict={}
+        self.i2w={}
+        num=0
+        for c in words:        
+            self.dict[c]=num
+            self.i2w[num]=c
+            num=num+1
+        self.unknown=len(self.dict)
         
         
 def buildVocabulary(inp:DataSet,maxWords=None):
@@ -150,12 +155,9 @@ def buildVocabulary(inp:DataSet,maxWords=None):
     word2Index={}  
     indexToWord={}      
     num=1
-    for c in counter.most_common(maxWords):        
-        word2Index[c[0]]=num
-        indexToWord[num]=c[0]
-        num=num+1        
-    return Vocabulary(word2Index,indexToWord)
-
+    words=counter.most_common(maxWords)
+            
+    return Vocabulary([str(x[0]).strip() for x in words])
 
 _vocabs={}
 
@@ -171,7 +173,9 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
         
         curName=inp.root().name
         if trainName!=curName:
-            name=utils.load(inp.root().cfg.path+".contribution")            
+            name=utils.load(inp.root().cfg.path+".contribution")
+            if isinstance(name , list):
+                name=name[0]              
     except:
         pass 
     if os.path.exists(name):
@@ -356,8 +360,14 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
   
     def onItem(self,outputs,labels):
         labels=self.dataset.decode(labels)
-        self.pr=self.pr+self.dataset.decode(outputs,len(labels))
-        self.gt=self.gt+labels
+        sm=set(labels)
+        if "O" in sm:
+            sm.remove("O")
+        gt=set(self.dataset.decode(outputs,len(labels)));
+        if "O" in gt: 
+            gt.remove("O")
+        self.pr=self.pr+list(sm)
+        self.gt=self.gt+list(gt)
         pass
     
     def eval(self,predictions):

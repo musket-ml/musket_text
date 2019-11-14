@@ -82,11 +82,16 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
         doc_completed=False
         fields=[]
         if self.document_separator_token:
-            fields: List[str] = re.split("\s+", line)
+            line=line.strip()
+            fields: List[str] = re.split("\t", line)
+            if len(fields)==1:
+                fields: List[str] = re.split("\s+", line)
             if len(fields) >= self.text_column:
                 if fields[self.text_column] == self.document_separator_token:
                     sentence_completed = True
                     doc_completed=True
+            if len(fields)==1:
+                    sentence_completed = True    
         return sentence_completed,doc_completed,fields
 
     def _encode_dataset(self,ds,encode_y=False,treshold=0.5):
@@ -120,7 +125,6 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
         
         txt=self[int(item.id)].x
         res=self.decode(v,len(txt))
-        
         return res,txt
                 
 
@@ -145,6 +149,13 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
 
     def load_docs(self, path, encoding,  num2Class):
         fp = os.path.join(context.get_current_project_data_path(), path)
+        if os.path.isdir(fp):
+            files=os.listdir(fp)
+            for q in tqdm.tqdm(files,"loading files"):
+                
+                if ".txt" in q[-4:] :
+                    self.load_docs(os.path.join(fp,q),encoding,num2Class)
+            return    
         csen=Sentence()
         cdoc=Doc()
         csen.doc=cdoc
@@ -226,7 +237,7 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
             
             res=[]
             if vm is not None:
-                for i in range(vm):
+                for i in range(min(vm,len(rs))):
                     q=rs[i]
                     if q in vs[1]:
                         res.append(vs[1][q])
@@ -245,4 +256,4 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
     def _encode_sentence(self,s:Sentence):    
         pass                
 
-       
+          
