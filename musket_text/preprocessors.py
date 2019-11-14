@@ -362,7 +362,7 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
         labels=self.dataset.decode(labels)
         
         gt=set(self.dataset.decode(outputs,len(labels)));
-        self.pr=self.pr+sm
+        self.pr=self.pr+labels
         self.gt=self.gt+gt
         pass
     
