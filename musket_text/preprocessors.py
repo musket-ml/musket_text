@@ -360,14 +360,10 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
   
     def onItem(self,outputs,labels):
         labels=self.dataset.decode(labels)
-        sm=set(labels)
-        if "O" in sm:
-            sm.remove("O")
+        
         gt=set(self.dataset.decode(outputs,len(labels)));
-        if "O" in gt: 
-            gt.remove("O")
-        self.pr=self.pr+list(sm)
-        self.gt=self.gt+list(gt)
+        self.pr=self.pr+sm
+        self.gt=self.gt+gt
         pass
     
     def eval(self,predictions):
