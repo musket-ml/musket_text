@@ -46,13 +46,16 @@ def pad_sequence_labeling(inp:datasets.DataSet,maxLen=-1)->datasets.DataSet:
     lm=inp
     if isinstance(inp, datasets.CompositeDataSet):
         lm=inp.components[0]
+    no_token_class=lm.num2Class[lm.clazzColumn][2]   
+    if "O" in lm.num2Class[lm.clazzColumn][0]:
+        no_token_class=lm.num2Class[lm.clazzColumn][0]['O'] 
     def pad_sequence_label(x):
         tokenText=list(x.x)
         tokenClazz=list(x.y)
         
             
         while len(tokenClazz)<maxLen:
-            tokenClazz.append(lm.num2Class[lm.clazzColumn][2])
+            tokenClazz.append(no_token_class)
             tokenText.append("eos")
         if len(tokenClazz)>maxLen:
             tokenClazz=tokenClazz[0:maxLen]
@@ -364,9 +367,9 @@ class connll2003_entity_level_f1(metrics.ByOneMetric):
   
     def onItem(self,outputs,labels):
         vl=self.dataset
-        if isinstance(vl, CompositeDataSet):
+        if isinstance(vl, datasets.CompositeDataSet):
             vl=vl.components[0]
-        labels=vl.dataset.decode(labels)
+        labels=vl.decode(labels)
         gt=vl.decode(outputs,len(labels));
         self.pr=self.pr+labels
         self.gt=self.gt+gt

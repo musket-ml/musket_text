@@ -122,28 +122,48 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
             v=item.y
         else:
             v=item.prediction
+        i=item.item_id()
+        tokens=self[i].x
+        tags=self.decode(v,len(tokens))
         
-        txt=self[int(item.id)].x
-        res=self.decode(v,len(txt))
-        return res,txt
+        docId=None
+        
+        if not self.byDoc:
+            docId=self.sentences[i].doc.num
+            
+        q=self[i]    
+        res=[]
+        if docId is not None:
+                for v in range(len(tags)):
+                    res.append({"doc_id":docId,"sentence_id":i,"token":tokens[v],"tag":tags[v]})
+        else:    
+                for v in range(len(tags)):
+                    res.append({"sentence_id":i,"token":tokens[v],"tag":tags[v]})
+        return res
                 
 
     def build_classes(self, num2Class):
         self.num2Class = {}
         for c in num2Class:
             ww = sorted(list(num2Class[c]))
+            extra=1
+            if "O" in ww:
+                extra=0
             rs = {}
             rs1 = {}
             num = 0
             for x in ww:
-                val = np.zeros((len(ww) + 1), dtype=np.bool)
+                val = np.zeros((len(ww) + extra), dtype=np.bool)
                 val[num] = 1
                 rs[x] = val
                 rs1[num] = x
                 num = num + 1
             
-            rs2 = np.zeros((len(ww) + 1), dtype=np.bool)
-            rs2[len(ww)] = 1
+            rs2 = np.zeros((len(ww) + extra), dtype=np.bool)
+            if extra!=0:
+                rs2[len(ww)] = 1
+            else:
+                rs2[ww.index("O")]=1    
             self.num2Class[c] = rs, rs1, rs2
 
 
@@ -195,7 +215,7 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
         if len(cdoc.sentences) > 0:
             self.docs.append(cdoc)
 
-    def __init__(self,path,clazzColumn=2,encoding="utf8",byDoc=False):
+    def __init__(self,path,clazzColumn=-1,encoding="utf8",byDoc=False):
         
         self.sentences=[]
         self.docs=[]
@@ -203,11 +223,14 @@ class SequenceLabelingColumnDataSet(datasets.DataSet):
         self.byDoc=byDoc
         self.text_column=0
         self.document_separator_token="-DOCSTART-"
-        
+        self.needSpecialEncode=True
         num2Class={}
         self.load_docs(path, encoding, num2Class)    
         
-        self.build_classes(num2Class)        
+        self.build_classes(num2Class)
+        if clazzColumn==-1:
+            self.clazzColumn=max(self.num2Class.keys())
+                
                 
     def __len__(self):
         if self.byDoc:
