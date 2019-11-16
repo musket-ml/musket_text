@@ -1,9 +1,15 @@
 from setuptools import setup
 import setuptools
+
+here = os.path.abspath(os.path.dirname(__file__))
+with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = '\n' + f.read()
+
 setup(name='musket_text',
       version='0.441',
-      description='Common parts of my pipelines',
-      url='https://github.com/petrochenko-pavel-a/musket_core',
+      description='Text support for Musket ML',
+      long_description=long_description,
+      url='https://github.com/musket-ml/musket_text',
       author='Petrochenko Pavel',
       author_email='petrochenko.pavel.a@gmail.com',
       license='MIT',
