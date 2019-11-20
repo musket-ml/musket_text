@@ -101,13 +101,25 @@ def bert(inp):
     outputs = g_bert.outputs
     return outputs[0]
 
+def bertDeployHandler(p1,cfg,p2):
+    try:
+        contrib=p1.contribution
+        if contrib.path[0]=='/':
+            contrib.path=contrib.path[1:]
+        nm=os.path.join(p2,"assets",contrib.path)
+        import shutil
+        shutil.copytree(get_current_project_data_path()+'/'+contrib.path + '/', nm)                
+    except:
+        import traceback
+        traceback.print_exc()
 
 @preprocessing.dataset_transformer
 def text_to_bert_input(inp,path,max_len): 
     
     from musket_text.bert.bert_encoder import create_tokenizer
     from musket_text.bert.input_constructor import prepare_input
-    bertTokenizer = create_tokenizer(get_current_project_data_path()+path)       
+    bertTokenizer = create_tokenizer(get_current_project_data_path()+path)
+    @preprocessing.deployHandler(bertDeployHandler)                   
     def transform2index(x):
         
     
