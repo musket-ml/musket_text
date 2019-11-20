@@ -1,9 +1,24 @@
 import os
 import re
 import numpy as np
-from musket_core import image_datasets,datasets,preprocessing,context
+from musket_core import image_datasets,datasets,preprocessing,context,utils
 import pandas as pd
 
+
+def provideArgsBinary(ds:image_datasets.BinaryClassificationDataSet,cfg,resultPath):
+    return "return inference.BasicEngine(os.path.join(os.path.dirname(__file__),'config.yaml'),"+"['"+ds.imColumn+"'],['"+ds.clazzColumn+"'],"+"{'"+ds.imColumn+"':'as_is','"+ds.clazzColumn+"':'binary'})"
+
+def provideArgsMultiClass(ds:image_datasets.BinaryClassificationDataSet,cfg,resultPath):
+    clazzMapPath=os.path.join(resultPath,"assets",ds.clazzColumn.replace('|',"_")+".cm")
+    utils.save(clazzMapPath, ds.class2Num)
+    return "return inference.BasicEngine(os.path.join(os.path.dirname(__file__),'config.yaml'),"+"['"+ds.imColumn+"'],['"+ds.clazzColumn+"'],"+"{'"+ds.imColumn+"':'as_is','"+ds.clazzColumn+"':'multi_class'})"
+
+def provideArgsOneHotClass(ds:image_datasets.BinaryClassificationDataSet,cfg,resultPath):
+    clazzMapPath=os.path.join(resultPath,"assets",ds.clazzColumn.replace('|',"_")+".cm")
+    utils.save(clazzMapPath, ds.class2Num)
+    return "return inference.BasicEngine(os.path.join(os.path.dirname(__file__),'config.yaml'),"+"['"+ds.imColumn+"'],['"+ds.clazzColumn+"'],"+"{'"+ds.imColumn+"':'as_is','"+ds.clazzColumn+"':'categorical_one_hot'})"
+    
+@preprocessing.deployHandler(provideArgsBinary)
 class BinaryTextClassificationDataSet(image_datasets.BinaryClassificationDataSet):
     
     def __init__(self,csvPath,textColumn,clazzColumn):
@@ -17,7 +32,8 @@ class BinaryTextClassificationDataSet(image_datasets.BinaryClassificationDataSet
         
     def get_value(self,t):
         return t
-    
+
+@preprocessing.deployHandler(provideArgsOneHotClass)    
 class CategoryTextClassificationDataSet(image_datasets.CategoryClassificationDataSet):
     
     def __init__(self,csvPath,textColumn,clazzColumn):
@@ -29,6 +45,7 @@ class CategoryTextClassificationDataSet(image_datasets.CategoryClassificationDat
     def get_value(self,t):
         return t        
 
+@preprocessing.deployHandler(provideArgsMultiClass)
 class MultiClassTextClassificationDataSet(image_datasets.MultiClassClassificationDataSet):
     
     def __init__(self,csvPath,textColumn,clazzColumn):

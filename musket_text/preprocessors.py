@@ -17,11 +17,11 @@ def get_coefs(word,*arr):
     
 
 def embeddings(EMBEDDING_FILE:str):
-    path=context.get_current_project_path()
-    emb=path+"/data/"+EMBEDDING_FILE
+    path=context.get_current_project_data_path()
+    emb=os.path.join(path,EMBEDDING_FILE)
     if EMBEDDING_FILE in _loaded:
         return _loaded[EMBEDDING_FILE]
-    cache=path+"/data/"
+    cache=path
     utils.ensure(cache)
     if os.path.exists(cache+EMBEDDING_FILE+".embcache"):
         result=utils.load(cache+EMBEDDING_FILE+".embcache")
@@ -168,33 +168,52 @@ def buildVocabulary(inp:DataSet,maxWords=None):
 
 _vocabs={}
 
+def vocabularyDeployHandler(p1,cfg,p2):
+    try:
+        nm="data."+str(p1.maxWords)+".vocab"
+        nm=os.path.join(p2,"assets",nm)        
+        utils.save(nm,p1.vocabulary)
+    except:
+        import traceback
+        traceback.print_exc()    
+
 
 @preprocessing.dataset_transformer
 def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
     voc=caches.get_cache_dir()
     
     name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
-    # WE SHOULD USE TRAIN VOCABULARY IN ALL CASES  
-    try:
-        trainName=str(inp.root().cfg.dataset)
-        
-        curName=inp.root().name
-        if trainName!=curName:
-            name=utils.load(inp.root().cfg.path+".contribution")
-            if isinstance(name , list):
-                name=name[0]              
-    except:
-        pass 
-    if os.path.exists(name):
+    # WE SHOULD USE TRAIN VOCABULARY IN ALL CASES
+    rp=os.path.join(context.get_current_project_path(),"assets",caches.cache_name(inp)+"."+str(maxWords)+".vocab")
+    vocabulary=None
+    if os.path.exists(rp):  
         if name in _vocabs:
             vocabulary= _vocabs[name]
         else:    
-            vocabulary=utils.load(name)
+            vocabulary=utils.load(rp)
             _vocabs[name]=vocabulary
-    else:
-        vocabulary=buildVocabulary(inp,maxWords)
-        utils.save(name,vocabulary)
-        _vocabs[name]=vocabulary    
+    if vocabulary is None:        
+        try:
+            trainName=str(inp.root().cfg.dataset)
+            
+            curName=inp.root().name
+            if trainName!=curName:
+                name=utils.load(inp.root().cfg.path+".contribution")
+                if isinstance(name , list):
+                    name=name[0]              
+        except:
+            pass 
+        if os.path.exists(name):
+            if name in _vocabs:
+                vocabulary= _vocabs[name]
+            else:    
+                vocabulary=utils.load(name)
+                _vocabs[name]=vocabulary
+        else:
+            vocabulary=buildVocabulary(inp,maxWords)
+            utils.save(name,vocabulary)
+            _vocabs[name]=vocabulary
+    @preprocessing.deployHandler(vocabularyDeployHandler)            
     def transform2index(x):
         ml=maxLen
         if ml==-1:
@@ -212,6 +231,8 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
         return res    
     rs= preprocessing.PreprocessedDataSet(inp,transform2index,False)
     rs.vocabulary=vocabulary
+    rs.maxWords=maxWords
+    rs.maxLen=maxLen
     rs.contribution=name
     return rs
 
@@ -341,16 +362,25 @@ def add_random_words(inp,probability):
     
 @model.block    
 def word_indexes_embedding(inp,path):
-    embs=embeddings(path)
-    v=get_vocab(inp.contribution);
+    
     embedding_matrix = None
     try:
-        for word, i in tqdm.tqdm(v.dict.items()):
-            if word in embs:
-                if embedding_matrix is None: 
+        
+        if context.isTrainMode():
+            embs=embeddings(path)
+            v=get_vocab(inp.contribution);
+                
+            for word, i in tqdm.tqdm(v.dict.items()):
+                if embedding_matrix is None:
                     embedding_matrix=np.random.randn(len(v.dict)+1, len(embs[word]))
-                embedding_matrix[i]=embs[word]
-        return keras.layers.Embedding(len(v.dict)+1,embedding_matrix.shape[1],weights=[embedding_matrix],trainable=False)(inp)    
+                    context.addTrainSetting((len(v.dict)+1, len(embs[word])))
+                if word in embs:
+                    embedding_matrix[i]=embs[word]
+            
+            return keras.layers.Embedding(len(v.dict)+1,embedding_matrix.shape[1],weights=[embedding_matrix],trainable=False)(inp)        
+        else:
+            s,z = context.popTrainSetting()
+            return keras.layers.Embedding(s,z,trainable=False)(inp)    
     except:
         import traceback
         traceback.print_exc()
