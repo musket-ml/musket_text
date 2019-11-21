@@ -10,9 +10,10 @@ with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = '\n' + f.read()
 
 setup(name='musket_text',
-      version='0.442',
+      version='0.443',
       description='Text support for Musket ML',
       long_description=long_description,
+      long_description_content_type="text/markdown",
       url='https://github.com/musket-ml/musket_text',
       author='Petrochenko Pavel',
       author_email='petrochenko.pavel.a@gmail.com',
