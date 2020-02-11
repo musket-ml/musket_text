@@ -92,14 +92,25 @@ class CropFirst1(keras.layers.Layer):
         return (input_shape[1],input_shape[2])    
 
 @model.block
-def bert(inp):
-    from musket_text.bert.load import load_google_bert
-    cfg=inp[0].contribution
-    path=cfg.path
-    max_len=cfg.len
-    g_bert, cfg = load_google_bert(get_current_project_data_path()+path + '/', max_len=max_len, use_attn_mask=False,customInputs=inp)
-    outputs = g_bert.outputs
-    return outputs[0]
+class bert(): 
+        
+    def __init__(self, v):
+        if K.backend() != 'tensorflow':
+            raise RuntimeError('BERT is only available '
+                               'with the TensorFlow backend.')
+        self.g_bert = None        
+        
+    def __call__(self,inp:list):
+        if self.g_bert is None:
+            from musket_text.bert.load import load_google_bert
+            cfg=inp[0].contribution
+            path=cfg.path
+            max_len=cfg.len
+            self.g_bert, cfg = load_google_bert(get_current_project_data_path()+path + '/', max_len=max_len, use_attn_mask=False)
+            self.outputs = self.g_bert.outputs
+        result = self.g_bert([inp[0],inp[1],inp[2]])
+        return result[0]
+        
 
 def bertDeployHandler(p1,cfg,p2):
     try:
