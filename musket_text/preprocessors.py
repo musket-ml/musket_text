@@ -9,6 +9,7 @@ from musket_core import caches,metrics
 from collections import Counter
 import tqdm
 import keras
+from keras import backend as K
 from future.types import no
 _loaded={}
 
