@@ -3,7 +3,7 @@ import numpy as np
 from musket_core import utils,preprocessing,context,model,datasets
 from musket_core.context import get_current_project_data_path
 from nltk.tokenize import casual_tokenize
-from musket_core.datasets import DataSet
+from musket_core.datasets import DataSet, PredictionItem
 from musket_core import configloader
 from musket_core import caches,metrics
 from collections import Counter
@@ -159,7 +159,17 @@ def tokenize(inp):
     try:
         return casual_tokenize(inp)
     except:
-        print(inp)
+        print('Error tokenizing: ' + str(inp))
+        return []
+    
+@preprocessing.dataset_preprocessor
+def tokenize_xy(inp:PredictionItem):
+    try:
+        new_x = casual_tokenize(inp.x)
+        new_y = casual_tokenize(inp.y)
+        return PredictionItem(inp.id, new_x, new_y, inp.prediction)
+    except:
+        print('Error tokenizing prediction item: x = ' + str(inp.x) + ' y = ' + str(inp.y))
         return []
 
 
@@ -175,14 +185,18 @@ class Vocabulary:
         self.unknown=len(self.dict)
         
         
-def buildVocabulary(inp:DataSet,maxWords=None):
+def buildVocabulary(inp:DataSet,maxWords=None, useY=False):
     counter=Counter()
     if maxWords==-1:
         maxWords=None
-    for i in tqdm.tqdm(range(len(inp)),desc="Building vocabulary for:"+str(inp)):
+    for i in tqdm.tqdm(range(len(inp)),desc="Building vocabulary for: " + str(inp) + ", " + ("Y" if useY else "X") + "axis"):
         p=inp[i]        
-        for c in p.x:
-            counter[c]+=1
+        if useY:
+            for c in p.y:
+                counter[c]+=1
+        else:
+            for c in p.x:
+                counter[c]+=1
     word2Index={}  
     indexToWord={}      
     num=1
@@ -201,9 +215,12 @@ def vocabularyDeployHandler(p1,cfg,p2):
         import traceback
         traceback.print_exc()    
 
+@preprocessing.dataset_transformer
+def y_tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
+    return tokens_to_indexes(inp, maxWords, maxLen, True)
 
 @preprocessing.dataset_transformer
-def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
+def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1, useY=False)->DataSet:
     voc=caches.get_cache_dir()
     
     name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
@@ -234,26 +251,28 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
                 vocabulary=utils.load(name)
                 _vocabs[name]=vocabulary
         else:
-            vocabulary=buildVocabulary(inp,maxWords)
+            vocabulary=buildVocabulary(inp,maxWords, useY)
             utils.save(name,vocabulary)
             _vocabs[name]=vocabulary
     @preprocessing.deployHandler(vocabularyDeployHandler)            
-    def transform2index(x):
+    def transform2index(item:PredictionItem):
         ml=maxLen
         if ml==-1:
             ml=len(x)
         res=np.zeros((ml,),dtype=np.int32)
         num=0
-        for v in x:
+        data = item.y if useY else item.x;
+        for v in data:
             if v in vocabulary.dict:
                 res[num]=(vocabulary.dict[v])
             else:
                 res[num]=(vocabulary.unknown)
             num=num+1
             if num==ml:
-                break            
-        return res    
-    rs= preprocessing.PreprocessedDataSet(inp,transform2index,False)
+                break     
+        res_item = PredictionItem(item.id, item.x, res, item.prediction) if useY else PredictionItem(item.id, res, item.y, item.prediction)        
+        return res_item    
+    rs= preprocessing.PreprocessedDataSet(inp,transform2index,True)
     rs.vocabulary=vocabulary
     rs.maxWords=maxWords
     rs.maxLen=maxLen
