@@ -6,11 +6,14 @@ from nltk.tokenize import casual_tokenize
 from musket_core.datasets import DataSet, PredictionItem
 from musket_core import configloader
 from musket_core import caches,metrics
+from seqeval import metrics as sem
 from collections import Counter
 import tqdm
 import keras
 from keras import backend as K
 from future.types import no
+from musket_core.caches import cache_name
+from builtins import int
 _loaded={}
 
 def get_coefs(word,*arr): 
@@ -126,15 +129,12 @@ def bertDeployHandler(p1,cfg,p2):
         traceback.print_exc()
 
 @preprocessing.dataset_transformer
-def text_to_bert_input(inp,path,max_len): 
-    
+def text_to_bert_input(inp,path,max_len):    
     from musket_text.bert.bert_encoder import create_tokenizer
     from musket_text.bert.input_constructor import prepare_input
     bertTokenizer = create_tokenizer(get_current_project_data_path()+path)
     @preprocessing.deployHandler(bertDeployHandler)                   
-    def transform2index(x):
-        
-    
+    def transform2index(x):    
         bInput = prepare_input(x, max_len, bertTokenizer, False)
         if bInput.attn_mask is not None:
             return [x[0] for x in [bInput.input_ids, bInput.input_type_ids, bInput.token_pos, bInput.attn_mask]]
@@ -185,13 +185,13 @@ class Vocabulary:
         self.unknown=len(self.dict)
         
         
-def buildVocabulary(inp:DataSet,maxWords=None, useY=False):
+def buildVocabulary(inp:DataSet,max_words=None, use_y=False):
     counter=Counter()
-    if maxWords==-1:
-        maxWords=None
-    for i in tqdm.tqdm(range(len(inp)),desc="Building vocabulary for: " + str(inp) + ", " + ("Y" if useY else "X") + "axis"):
+    if max_words==-1:
+        max_words=None
+    for i in tqdm.tqdm(range(len(inp)),desc="Building vocabulary for: " + str(inp) + ", " + ("Y" if use_y else "X") + "axis"):
         p=inp[i]        
-        if useY:
+        if use_y:
             for c in p.y:
                 counter[c]+=1
         else:
@@ -200,7 +200,7 @@ def buildVocabulary(inp:DataSet,maxWords=None, useY=False):
     word2Index={}  
     indexToWord={}      
     num=1
-    words=counter.most_common(maxWords)
+    words=counter.most_common(max_words)
             
     return Vocabulary([str(x[0]).strip() for x in words])
 
@@ -208,30 +208,39 @@ _vocabs={}
 
 def vocabularyDeployHandler(p1,cfg,p2):
     try:
-        nm="data."+str(p1.maxWords)+".vocab"
+        nm="data"+ ("." + str(p1.max_words) if p1.max_words > 0 else "")+".vocab"
         nm=os.path.join(p2,"assets",nm)        
         utils.save(nm,p1.vocabulary)
     except:
         import traceback
         traceback.print_exc()    
 
-@preprocessing.dataset_transformer
-def y_tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1)->DataSet:
-    return tokens_to_indexes(inp, maxWords, maxLen, True)
+def get_vocabulary_name(cache_name:str, max_words:int, use_y):
+    return cache_name + ("_y" if use_y else "_x")+("." +str(max_words) if max_words > 0 else "") +".vocab"
 
 @preprocessing.dataset_transformer
-def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1, useY=False)->DataSet:
+def y_tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1,file_name = None)->DataSet:
+    return tokens_to_indexes(inp, max_words, maxLen, file_name, True)
+
+@preprocessing.dataset_transformer
+def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_y=False)->DataSet:
     voc=caches.get_cache_dir()
     
-    name=voc+caches.cache_name(inp)+"."+str(maxWords)+".vocab"
+    if file_name is not None:
+        name = file_name
+    else:
+        name=voc+get_vocabulary_name(caches.cache_name(inp),max_words, use_y)
     # WE SHOULD USE TRAIN VOCABULARY IN ALL CASES
-    rp=os.path.join(context.get_current_project_path(),"assets",caches.cache_name(inp)+"."+str(maxWords)+".vocab")
+    if file_name is not None:
+        file_path=os.path.join(context.get_current_project_data_path(), file_name)
+    else: 
+        file_path=os.path.join(context.get_current_project_path(),"assets",get_vocabulary_name(caches.cache_name(inp),max_words, use_y))
     vocabulary=None
-    if os.path.exists(rp):  
+    if os.path.exists(file_path):  
         if name in _vocabs:
             vocabulary= _vocabs[name]
         else:    
-            vocabulary=utils.load(rp)
+            vocabulary=utils.load(file_path)
             _vocabs[name]=vocabulary
     if vocabulary is None:        
         try:
@@ -251,7 +260,7 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1, useY=False)->DataSet:
                 vocabulary=utils.load(name)
                 _vocabs[name]=vocabulary
         else:
-            vocabulary=buildVocabulary(inp,maxWords, useY)
+            vocabulary=buildVocabulary(inp,max_words, use_y)
             utils.save(name,vocabulary)
             _vocabs[name]=vocabulary
     @preprocessing.deployHandler(vocabularyDeployHandler)            
@@ -261,7 +270,7 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1, useY=False)->DataSet:
             ml=len(x)
         res=np.zeros((ml,),dtype=np.int32)
         num=0
-        data = item.y if useY else item.x;
+        data = item.y if use_y else item.x;
         for v in data:
             if v in vocabulary.dict:
                 res[num]=(vocabulary.dict[v])
@@ -270,17 +279,17 @@ def tokens_to_indexes(inp:DataSet,maxWords=-1,maxLen=-1, useY=False)->DataSet:
             num=num+1
             if num==ml:
                 break     
-        res_item = PredictionItem(item.id, item.x, res, item.prediction) if useY else PredictionItem(item.id, res, item.y, item.prediction)        
+        res_item = PredictionItem(item.id, item.x, res, item.prediction) if use_y else PredictionItem(item.id, res, item.y, item.prediction)        
         return res_item    
     rs= preprocessing.PreprocessedDataSet(inp,transform2index,True)
     rs.vocabulary=vocabulary
-    rs.maxWords=maxWords
+    rs.maxWords=max_words
     rs.maxLen=maxLen
+    rs.use_y = use_y
     rs.contribution=name
     return rs
 
 def get_vocab(nm)->Vocabulary:
-        
     if nm in _vocabs:
         return _vocabs[nm]
     vocabulary=utils.load(nm)
@@ -428,8 +437,6 @@ def word_indexes_embedding(inp,path):
         import traceback
         traceback.print_exc()
         return None     
-    
-from seqeval import metrics as sem   
 
 class connll2003_entity_level_f1(metrics.ByOneMetric):
     def __init__(self):
@@ -463,8 +470,6 @@ class connll2003_entity_level_precision(connll2003_entity_level_f1):
         self.pr=[]
         self.name="connll2003_entity_level_precision"
         pass
-  
-    
     
     def eval(self,predictions):
         self.dataset=predictions.root()
