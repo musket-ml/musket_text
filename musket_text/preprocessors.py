@@ -6,7 +6,6 @@ from nltk.tokenize import casual_tokenize
 from musket_core.datasets import DataSet, PredictionItem
 from musket_core import configloader
 from musket_core import caches,metrics
-from seqeval import metrics as sem
 from collections import Counter
 import tqdm
 import keras
@@ -249,8 +248,11 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
             curName=inp.root().name
             if trainName!=curName:
                 name=utils.load(inp.root().cfg.path+".contribution")
-                if isinstance(name , list):
-                    name=name[0]              
+                if isinstance(name , dict):
+                    name=name["x" if not use_y else "y"]
+                elif isinstance(name , list):
+                    name=name[0 if not use_y else 1]
+                                  
         except:
             pass 
         if os.path.exists(name):
@@ -286,7 +288,9 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
     rs.maxWords=max_words
     rs.maxLen=maxLen
     rs.use_y = use_y
-    rs.contribution=name
+    if not hasattr(rs, "contribution"):
+        rs.contribution = {}            
+    rs.contribution["x" if not use_y else "y"]=name
     return rs
 
 def get_vocab(nm)->Vocabulary:
@@ -420,7 +424,12 @@ def word_indexes_embedding(inp,path):
         
         if context.isTrainMode():
             embs=embeddings(path)
-            v=get_vocab(inp.contribution);
+            vocab_name = inp.contribution
+            if isinstance(vocab_name, dict):
+                vocab_name = vocab_name["x"]
+            elif isinstance(vocab_name, list):
+                vocab_name = vocab_name[0]
+            v=get_vocab(vocab_name);
                 
             for word, i in tqdm.tqdm(v.dict.items()):
                 if embedding_matrix is None:
@@ -437,6 +446,8 @@ def word_indexes_embedding(inp,path):
         import traceback
         traceback.print_exc()
         return None     
+    
+from seqeval import metrics as sem   
 
 class connll2003_entity_level_f1(metrics.ByOneMetric):
     def __init__(self):
