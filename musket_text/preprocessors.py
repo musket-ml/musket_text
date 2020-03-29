@@ -13,6 +13,7 @@ from keras import backend as K
 from future.types import no
 from musket_core.caches import cache_name
 from builtins import int
+from musket_core.preprocessing import PreproccedPredictionItem
 _loaded={}
 
 def get_coefs(word,*arr): 
@@ -165,8 +166,8 @@ def tokenize(inp):
 def tokenize_xy(inp:PredictionItem):
     try:
         new_x = casual_tokenize(inp.x)
-        new_y = casual_tokenize(inp.y)
-        return PredictionItem(inp.id, new_x, new_y, inp.prediction)
+        new_y = casual_tokenize(inp.y)        
+        return PreproccedPredictionItem(inp.id, new_x, new_y, inp)
     except:
         print('Error tokenizing prediction item: x = ' + str(inp.x) + ' y = ' + str(inp.y))
         return []
@@ -281,8 +282,8 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
             num=num+1
             if num==ml:
                 break     
-        res_item = PredictionItem(item.id, item.x, res, item.prediction) if use_y else PredictionItem(item.id, res, item.y, item.prediction)        
-        return res_item    
+        res_item = PreproccedPredictionItem(item.id, item.x, res, item) if use_y else PreproccedPredictionItem(item.id, res, item.y, item)        
+        return res_item
     rs= preprocessing.PreprocessedDataSet(inp,transform2index,True)
     rs.vocabulary=vocabulary
     rs.maxWords=max_words
