@@ -229,7 +229,7 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
     if file_name is not None:
         name = file_name
     else:
-        name=voc+get_vocabulary_name(caches.cache_name(inp),max_words, use_y)
+        name=get_vocabulary_name(caches.cache_name(inp),max_words, use_y)
     # WE SHOULD USE TRAIN VOCABULARY IN ALL CASES
     if file_name is not None:
         file_path=os.path.join(context.get_current_project_data_path(), file_name)
@@ -246,7 +246,7 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
         try:
             trainName=str(inp.root().cfg.dataset)
             
-            curName=inp.root().name
+            curName=inp.root().get_name() 
             if trainName!=curName:
                 name=utils.load(inp.root().cfg.path+".contribution")
                 if isinstance(name , dict):
@@ -256,15 +256,16 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
                                   
         except:
             pass 
-        if os.path.exists(name):
+        file_path = os.path.join(voc,name)
+        if os.path.exists(file_path):
             if name in _vocabs:
                 vocabulary= _vocabs[name]
             else:    
-                vocabulary=utils.load(name)
+                vocabulary=utils.load(file_path)
                 _vocabs[name]=vocabulary
         else:
             vocabulary=buildVocabulary(inp,max_words, use_y)
-            utils.save(name,vocabulary)
+            utils.save(file_path,vocabulary)
             _vocabs[name]=vocabulary
     @preprocessing.deployHandler(vocabularyDeployHandler)            
     def transform2index(item:PredictionItem):
