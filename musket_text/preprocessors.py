@@ -184,7 +184,6 @@ class Vocabulary:
             num=num+1
         self.unknown=len(self.dict)
         
-        
 def buildVocabulary(inp:DataSet,max_words=None, use_y=False):
     counter=Counter()
     if max_words==-1:
@@ -262,10 +261,12 @@ def tokens_to_indexes(inp:DataSet,max_words=-1,maxLen=-1, file_name = None, use_
                 vocabulary= _vocabs[name]
             else:    
                 vocabulary=utils.load(file_path)
+                print("Loaded vocabulary " + name + " size: " + str(len(vocabulary.dict)))
                 _vocabs[name]=vocabulary
         else:
             vocabulary=buildVocabulary(inp,max_words, use_y)
             utils.save(file_path,vocabulary)
+            print("Build and saved vocabulary " + name + " size: " + str(len(vocabulary.dict)))
             _vocabs[name]=vocabulary
     @preprocessing.deployHandler(vocabularyDeployHandler)            
     def transform2index(item:PredictionItem):
